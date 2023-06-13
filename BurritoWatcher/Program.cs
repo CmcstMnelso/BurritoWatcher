@@ -18,6 +18,7 @@ namespace BurritoWatcher
             Console.WriteLine("Forwarding codes to:{0} recipients", secrets.Contacts.Count());
             Console.WriteLine("-------------------------------------------------------------------");
             Console.WriteLine("Starting BurritoEngine...");
+
             //create engine
             using (BurritoEngine engine = new BurritoEngine() { TwitterBearerToken = secrets.TwitterBearerToken, Contacts = secrets.Contacts})
             {

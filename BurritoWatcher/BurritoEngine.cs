@@ -68,11 +68,15 @@ namespace BurritoWatcher
                 //create action when tweet caught by subscription rules
                 await _twitterClient.NextTweetStreamAsync(async (tweet) =>
                 {
-                    Console.WriteLine($"Tweet posted by {tweet.Author.Name}: {tweet.Text} (Rules: {string.Join(',', tweet.MatchingRules.Select(x => x.Tag))})");
+                    
                     string code = await Detect(tweet);
-                    if (string.IsNullOrEmpty(code)) return;
-                    Console.WriteLine("Code detected:{0}", code);
+                    if (string.IsNullOrEmpty(code) || code.Length < 4)
+                    {
+                        Console.WriteLine($"Tweet posted by {tweet.Author.Name}: No code found. {tweet.Text} (Rules: {string.Join(',', tweet.MatchingRules.Select(x => x.Tag))})");
+                        return;
+                    }
                     SendCode(code);
+                    Console.WriteLine("Code detected:{0}", code);
                 },
                 new TweetSearchOptions
                 {
@@ -87,6 +91,8 @@ namespace BurritoWatcher
             Console.WriteLine("Checking twitter feed subscription status...");
             //find all existing subscriptions
             var subs = await _twitterClient.GetInfoTweetStreamAsync();
+            //foreach (var sub in subs)
+            //    await _twitterClient.DeleteTweetStreamAsync(new string[] { sub.Id });
             if (subs==null||!subs.Any(a=>a.Value.ToString().Contains(MonitoredAccount))){
                 Console.WriteLine("No subscription found to tweets from:{0}", MonitoredAccount);
                 //add subscription
@@ -115,7 +121,7 @@ namespace BurritoWatcher
                     _smsManager.SendSMS(curNumber, code);
                     _smsManager.SendSMS(curNumber, "Send to sms:+888222 for a free burrito. -BurritoBot");
                 }
-                else _smsManager.SendSMS(curNumber, "sms://+888222?body=" + code);
+                else _smsManager.SendSMS(curNumber, "sms://888222?body=" + code);
             }
         }
 
@@ -129,7 +135,7 @@ namespace BurritoWatcher
             {
                 //download full tweet with media
                 var fullTweet = await _twitterClient.GetTweetAsync(tweet.Id, new TweetSearchOptions() { TweetOptions = new[] { TweetOption.Attachments }, MediaOptions = new[] { MediaOption.Url } });
-                if (fullTweet == null || fullTweet.Attachments?.Media?.Count() == 0) return null;
+                if (fullTweet == null || fullTweet.Attachments==null ||fullTweet.Attachments.Media==null || fullTweet.Attachments?.Media?.Count() == 0) return null;
                 
                 //get first mediaUrl to download
                 var url = fullTweet.Attachments.Media.Select(a => a.Url).First();
@@ -145,10 +151,10 @@ namespace BurritoWatcher
                     Console.WriteLine("Read {0} in attached image.",result.Text);
                     codeMatch = chipotlePattern.Match(result.Text);
                     if (codeMatch == null || !codeMatch.Success) return null;
-                    return codeMatch.Value;
+                    return codeMatch.Value.Replace("Text ", "").Replace(" to", "");
                 }
             }
-            else return codeMatch.Value;
+            else return codeMatch.Value.Replace("Text ", "").Replace(" to", "");
         }
         //disposes objects properly and stops monitoring
         public void Stop() {
